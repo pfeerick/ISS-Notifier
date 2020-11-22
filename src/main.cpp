@@ -21,6 +21,7 @@ long timeUntilFlyoverComplete = 0; // How long it will be until the current flyo
 
 enum machineStates
 {
+  WIFI_INIT,
   START,
   GET_TIME,
   GET_NEXT_PASS,
@@ -30,7 +31,7 @@ enum machineStates
   PASS_COMPLETE
 };
 
-enum machineStates currentState = START;
+enum machineStates currentState = WIFI_INIT;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_NEOPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 WiFiClient client;
@@ -147,42 +148,48 @@ void setup()
   Serial.println("");
   Serial.println("ISS Flyover Notifier");
   Serial.println("");
-
-  WiFi.begin(ssid, password);
-  Serial.print("WiFi Connecting...");
-  while ((WiFi.status() != WL_CONNECTED) && (millis() < 30000))
-  {
-    delay(100);
-    Serial.print(".");
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-  }
-
-  digitalWrite(LED_BUILTIN, HIGH); // invert if HIGH == ON
-
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    success();
-    Serial.println("CONNECTED!");
-  }
-  else
-  {
-    Serial.println("FAIL!");
-    Serial.print("Device will restart in ");
-    for (int i = 5; i >= 1; i--)
-    {
-      Serial.print(i);
-      Serial.print("...");
-      fail();
-      delay(500);
-    }
-    ESP.restart();
-  }
 }
 
 void loop()
 {
   switch (currentState)
   {
+  case WIFI_INIT:
+  {
+    WiFi.begin(ssid, password);
+    Serial.print("WiFi Connecting...");
+    int waitTime = 0;
+    while ((WiFi.status() != WL_CONNECTED) && (waitTime < 30))
+    {
+      Serial.print(".");
+      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+      delay(100);
+      waitTime++;
+    }
+
+    digitalWrite(LED_BUILTIN, HIGH); // invert if HIGH == ON
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      success();
+      Serial.println("CONNECTED!");
+      currentState = START;
+    }
+    else
+    {
+      Serial.println("FAIL!");
+      Serial.print("Device will restart in ");
+      for (int i = 5; i >= 1; i--)
+      {
+        Serial.print(i);
+        Serial.print("...");
+        fail();
+        delay(500);
+      }
+      ESP.restart();
+    }
+    break;
+  }
   case START:
   {
     //shut down the NeoPixel until next ISS flyover
@@ -193,6 +200,11 @@ void loop()
     {
       currentState = GET_TIME;
     }
+    else
+    {
+      currentState = WIFI_INIT;
+    }
+
     break;
   }
   case GET_TIME:
