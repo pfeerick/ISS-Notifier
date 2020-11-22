@@ -1,21 +1,13 @@
-/*********
-pollux labs, 2020
-*********/
-
-/*** Your WiFi Credentials ***/
-const char *ssid = "your ssid";
-const char *password = "your password";
-
-/*** Your coordinates ***/
-const float latitude = 00.00;
-const float longitude = 00.00;
-const float altitude = 100.00;
-
+/**
+ * Original code written by pollux labs, 2020
+ * URL: https://gist.github.com/polluxlabs/1ba7824175c5e011565bd61af2fd1c6b
+ */
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
 #include <Adafruit_NeoPixel.h>
+#include "secrets.h"
 
 //Variables for times and duration
 long riseTime = 0;
