@@ -126,8 +126,6 @@ bool getNextPass()
       riseTime = response[1]["risetime"];
     }
 
-    //compute time until rise
-    timeUntilFlyover = riseTime - currentTime;
     return true;
   }
   else
@@ -235,6 +233,9 @@ void loop()
     else
     {
       success();
+
+      //compute time until rise
+      timeUntilFlyover = riseTime - currentTime;
 
       Serial.print("Risetime = ");
       Serial.println(riseTime);
