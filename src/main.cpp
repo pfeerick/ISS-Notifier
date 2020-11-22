@@ -205,9 +205,11 @@ void loop()
     }
     else
     {
+      success();
+
       Serial.print("Current time (GMT) = ");
       Serial.println(currentTime);
-      success();
+
       currentState = GET_NEXT_PASS;
     }
     break;
@@ -238,6 +240,12 @@ void loop()
       int h = t;
       Serial.printf("That's %02i hours, %02i minutes and %02i seconds from now\n", h, m, s);
 
+      t = flyoverDuration;
+      s = t % 60;
+      t = (t - s) / 60;
+      m = t % 60;
+      Serial.printf("Estimated pass duration will be %02i minutes and %02i second(s)\n", m, s);
+
       timeUntilFlyoverComplete = flyoverDuration;
       currentState = WAIT_FOR_PASS;
     }
@@ -245,6 +253,7 @@ void loop()
   }
   case WAIT_FOR_PASS:
   {
+    timeUntilFlyover -= 1800;
     if (timeUntilFlyover > 0)
     { // while the ISS isn't overhead
 
@@ -269,8 +278,13 @@ void loop()
   {
     //when ISS rises  above the horizon
     Serial.println("ISS overhead!");
-    Serial.print("max duration = ");
-    Serial.println(timeUntilFlyoverComplete);
+
+    uint32_t t = timeUntilFlyoverComplete;
+    int s = t % 60;
+    t = (t - s) / 60;
+    int m = t % 60;
+    Serial.printf("Estimated pass duration %02i minutes and %02i second(s)\n", m, s);
+
     currentState = PASSING;
     break;
   }
@@ -287,6 +301,12 @@ void loop()
       pixels.show();
 
       timeUntilFlyoverComplete--;
+
+      uint32_t t = timeUntilFlyoverComplete;
+      int s = t % 60;
+      t = (t - s) / 60;
+      int m = t % 60;
+      Serial.printf("Pass time remaining: %02i minutes and %02i second(s)\n", m, s);
       delay(1000);
     }
     else
