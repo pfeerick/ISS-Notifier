@@ -24,7 +24,8 @@ void success()
     pixels.setPixelColor(i, pixels.Color(0, 255, 0));
     pixels.show();
   }
-  delay(100);
+
+  delay(500);
 
   for (int i = 11; i >= 0; i--)
   {
@@ -39,19 +40,21 @@ void fail()
   {
     pixels.setPixelColor(i, pixels.Color(255, 0, 0));
     pixels.show();
-    delay(100);
   }
+
+  delay(500);
 
   for (int i = 11; i >= 0; i--)
   {
     pixels.setPixelColor(i, LOW);
     pixels.show();
-    delay(100);
   }
 }
 
+// Current time (GMT)
 void getCurrentTime()
 {
+  Serial.println("Getting the current time...");
 
   HTTPClient http;
   http.begin("http://worldtimeapi.org/api/timezone/europe/london"); //URL for getting the current time
@@ -89,21 +92,18 @@ void getCurrentTime()
 
 void apiCall()
 {
-
+  Serial.println("Looking up next ISS flyover time...");
   if ((WiFi.status() == WL_CONNECTED))
   {
-
     getCurrentTime(); //call function for getting the current time
 
     HTTPClient http;
-
     http.begin("http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
 
     int httpCode = http.GET();
 
     if (httpCode == 200)
     {
-
       success();
 
       String payload = http.getString(); //save response
@@ -136,8 +136,16 @@ void apiCall()
 
       //compute time until rise
       timeUntilFlyover = riseTime - currentTime;
-      Serial.print("Time until flyover: ");
+      Serial.print("Time until flyover (in seconds): ");
       Serial.println(timeUntilFlyover);
+
+      uint32_t t = timeUntilFlyover;
+      int s = t % 60;
+      t = (t - s)/60;
+      int m = t % 60;
+      t = (t - m)/60;
+      int h = t;
+      Serial.printf("That's %02i hours, %02i minutes and %02i seconds\n",h,m,s);
     }
     else
     {
@@ -149,24 +157,33 @@ void apiCall()
 
 void setup()
 {
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT); //LED Pin
+  digitalWrite(LED_BUILTIN, LOW); // invert if LOW == ON
 
   pixels.begin();
   pixels.setBrightness(100);
 
-  pinMode(2, OUTPUT); //LED Pin (at ESP8266: D4)
-
-  Serial.begin(115200);
+  Serial.println("");
+  Serial.println("ISS Notifier");
+  Serial.println("");
 
   WiFi.begin(ssid, password);
-
+  Serial.print("WiFi Connecting...");
   while (WiFi.status() != WL_CONNECTED)
   {
-    delay(1000);
-    Serial.println("Connecting...");
+    delay(100);
+    Serial.print(".");
+    digitalWrite(LED_BUILTIN,!digitalRead(LED_BUILTIN));
   }
-  success();
-  delay(1000);
-  Serial.println("Hello, world!");
+
+  if (WiFi.status() == WL_CONNECTED) {
+    success();
+    Serial.println("[CONNECTED!]");
+  } else{
+    fail();
+    Serial.println("[FAIL!]");
+  }
 }
 
 void loop()
