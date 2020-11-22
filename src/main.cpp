@@ -283,11 +283,9 @@ void loop()
       int colorBlue = map(timeUntilFlyoverComplete, 0, flyoverDuration, 0, 200);
 
       //show the current color on all LEDs
-      for (int i = 0; i < NUM_OF_NEOPIXELS; i++)
-      {
-        pixels.setPixelColor(i, pixels.Color(colorRed, 0, colorBlue));
-        pixels.show();
-      }
+      pixels.fill(pixels.Color(colorRed, 0, colorBlue));
+      pixels.show();
+
       timeUntilFlyoverComplete--;
       delay(1000);
     }
