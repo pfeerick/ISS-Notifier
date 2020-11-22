@@ -6,6 +6,7 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
+#include <ESP8266WiFi.h>
 #include <Adafruit_NeoPixel.h>
 #include "secrets.h"
 
@@ -16,6 +17,7 @@ long duration = 0;
 long timeUntilFlyover = 0; //difference
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(12, 2, NEO_GRB + NEO_KHZ800);
+WiFiClient client;
 
 void success()
 {
@@ -57,7 +59,7 @@ void getCurrentTime()
   Serial.println("Getting the current time...");
 
   HTTPClient http;
-  http.begin("http://worldtimeapi.org/api/timezone/europe/london"); //URL for getting the current time
+  http.begin(client, "http://worldtimeapi.org/api/timezone/europe/london"); //URL for getting the current time
 
   int httpCode = http.GET();
 
@@ -98,7 +100,7 @@ void apiCall()
     getCurrentTime(); //call function for getting the current time
 
     HTTPClient http;
-    http.begin("http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
+    http.begin(client, "http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
 
     int httpCode = http.GET();
 
