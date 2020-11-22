@@ -2,21 +2,19 @@
 pollux labs, 2020
 *********/
 
-
 /*** Your WiFi Credentials ***/
-const char* ssid = "your ssid";
-const char* password =  "your password";
-
+const char *ssid = "your ssid";
+const char *password = "your password";
 
 /*** Your coordinates ***/
 const float latitude = 00.00;
 const float longitude = 00.00;
 const float altitude = 100.00;
 
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
-
 #include <Adafruit_NeoPixel.h>
 
 //Variables for times and duration
@@ -25,46 +23,51 @@ long currentTime = 0;
 long duration = 0;
 long timeUntilFlyover = 0; //difference
 
-
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(12, 2, NEO_GRB + NEO_KHZ800);
 
-void success() {
-  for (int i = 0; i < 12; i++) {
+void success()
+{
+  for (int i = 0; i < 12; i++)
+  {
     pixels.setPixelColor(i, pixels.Color(0, 255, 0));
     pixels.show();
   }
   delay(100);
 
-  for (int i = 11; i >= 0; i--) {
+  for (int i = 11; i >= 0; i--)
+  {
     pixels.setPixelColor(i, LOW);
     pixels.show();
   }
 }
 
-
-void fail() {
-  for (int i = 0; i < 12; i++) {
+void fail()
+{
+  for (int i = 0; i < 12; i++)
+  {
     pixels.setPixelColor(i, pixels.Color(255, 0, 0));
     pixels.show();
     delay(100);
   }
 
-  for (int i = 11; i >= 0; i--) {
+  for (int i = 11; i >= 0; i--)
+  {
     pixels.setPixelColor(i, LOW);
     pixels.show();
     delay(100);
   }
 }
 
-
-void getCurrentTime() {
+void getCurrentTime()
+{
 
   HTTPClient http;
   http.begin("http://worldtimeapi.org/api/timezone/europe/london"); //URL for getting the current time
-  
+
   int httpCode = http.GET();
 
-  if (httpCode == 200) { //Check for the returning code
+  if (httpCode == 200)
+  { //Check for the returning code
 
     success();
 
@@ -75,7 +78,8 @@ void getCurrentTime() {
     DeserializationError error = deserializeJson(doc, payload);
     http.end();
 
-    if (error) {
+    if (error)
+    {
       Serial.print(F("deserializeJson() failed(current time): "));
       Serial.println(error.c_str());
       return;
@@ -83,17 +87,19 @@ void getCurrentTime() {
     currentTime = doc["unixtime"]; //save current time
     Serial.print("current time= ");
     Serial.println(currentTime);
-
-  } else {
+  }
+  else
+  {
     Serial.println("Error on HTTP request");
     fail();
   }
-
 }
 
-void apiCall() {
+void apiCall()
+{
 
-  if ((WiFi.status() == WL_CONNECTED)) { 
+  if ((WiFi.status() == WL_CONNECTED))
+  {
 
     getCurrentTime(); //call function for getting the current time
 
@@ -103,7 +109,8 @@ void apiCall() {
 
     int httpCode = http.GET();
 
-    if (httpCode == 200) {
+    if (httpCode == 200)
+    {
 
       success();
 
@@ -115,7 +122,8 @@ void apiCall() {
 
       http.end();
 
-      if (error) {
+      if (error)
+      {
         Serial.print(F("deserializeJson() failed: "));
         Serial.println(error.c_str());
         return;
@@ -125,9 +133,10 @@ void apiCall() {
       duration = response[0]["duration"]; // save duration of the next flyover
       riseTime = response[0]["risetime"]; // save start time of the next flyover
 
-      if (riseTime < currentTime) { //If ISS has already passed, take the next flyover
+      if (riseTime < currentTime)
+      { //If ISS has already passed, take the next flyover
         duration = response[1]["duration"];
-        riseTime = response[1]["risetime"]; 
+        riseTime = response[1]["risetime"];
       }
 
       Serial.print("Risetime [0]= ");
@@ -138,25 +147,28 @@ void apiCall() {
       Serial.print("Time until flyover: ");
       Serial.println(timeUntilFlyover);
     }
-    else {
+    else
+    {
       Serial.println("Error on HTTP request");
       fail();
     }
   }
 }
 
-void setup() {
+void setup()
+{
 
   pixels.begin();
   pixels.setBrightness(100);
 
-  pinMode (2, OUTPUT); //LED Pin (at ESP8266: D4)
+  pinMode(2, OUTPUT); //LED Pin (at ESP8266: D4)
 
   Serial.begin(115200);
 
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(1000);
     Serial.println("Connecting...");
   }
@@ -165,18 +177,19 @@ void setup() {
   Serial.println("Hello, world!");
 }
 
-
-void loop() {
+void loop()
+{
   apiCall(); //API call for the next ISS flyover
 
-
   //shut down the NeoPixel until next ISS flyover
-  for (int i = 0; i < 12; i++) {
+  for (int i = 0; i < 12; i++)
+  {
     pixels.setPixelColor(i, LOW);
     pixels.show();
   }
 
-  while (timeUntilFlyover > 0) { // while the ISS isn't overhead
+  while (timeUntilFlyover > 0)
+  { // while the ISS isn't overhead
 
     delay(1000);
     Serial.println(timeUntilFlyover);
@@ -190,20 +203,23 @@ void loop() {
   Serial.print("max duration = ");
   Serial.println(duration);
 
-  for (duration; duration >= 0; duration--) {
+  for (duration; duration >= 0; duration--)
+  {
     //map remaining flyover time on a color gradient
     int colorRed = map(duration, 0, maxDuration, 200, 0);
     int colorBlue = map(duration, 0, maxDuration, 0, 200);
 
     //show the current color on all LEDs
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < 12; i++)
+    {
       pixels.setPixelColor(i, pixels.Color(colorRed, 0, colorBlue));
       pixels.show();
     }
     delay(1000);
   }
-    
-  for (int i = 0; i < 12; i++) {
+
+  for (int i = 0; i < 12; i++)
+  {
     pixels.setPixelColor(i, LOW);
     pixels.show();
   }
