@@ -63,7 +63,7 @@ void getCurrentTime()
 
   int httpCode = http.GET();
 
-  if (httpCode == 200)
+  if (httpCode == HTTP_CODE_OK)
   { //Check for the returning code
 
     success();
@@ -104,7 +104,7 @@ void apiCall()
 
     int httpCode = http.GET();
 
-    if (httpCode == 200)
+    if (httpCode == HTTP_CODE_OK)
     {
       success();
 
