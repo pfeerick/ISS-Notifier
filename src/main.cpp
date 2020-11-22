@@ -265,7 +265,6 @@ void loop()
   }
   case WAIT_FOR_PASS:
   {
-    timeUntilFlyover -= 1800;
     if (timeUntilFlyover > 0)
     { // while the ISS isn't overhead
 
