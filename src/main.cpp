@@ -159,7 +159,7 @@ void loop()
     WiFi.begin(ssid, password);
     Serial.print("WiFi Connecting...");
     int waitTime = 0;
-    while ((WiFi.status() != WL_CONNECTED) && (waitTime < 30))
+    while ((WiFi.status() != WL_CONNECTED) && (waitTime < 300))
     {
       Serial.print(".");
       digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
