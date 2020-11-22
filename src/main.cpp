@@ -194,10 +194,6 @@ void loop()
   }
   case START:
   {
-    //shut down the NeoPixel until next ISS flyover
-    pixels.clear();
-    pixels.show();
-
     if (WiFi.status() == WL_CONNECTED)
     {
       currentState = GET_TIME;
@@ -330,11 +326,10 @@ void loop()
   }
   case PASS_COMPLETE:
   {
-    for (int i = 0; i < NUM_OF_NEOPIXELS; i++)
-    {
-      pixels.setPixelColor(i, LOW);
-      pixels.show();
-    }
+    //shut down the NeoPixel until next ISS flyover
+    pixels.clear();
+    pixels.show();
+
     currentState = START;
     break;
   }
