@@ -11,7 +11,7 @@
 #include "secrets.h"
 
 #define NEOPIXEL_PIN D3
-#define NUM_OF_NEOPIXELS 17
+#define NUM_OF_NEOPIXELS 12
 #define STATUS_LED LED_BUILTIN
 #define STATUS_LED_INVERTED true
 
