@@ -12,6 +12,8 @@
 
 #define NEOPIXEL_PIN D3
 #define NUM_OF_NEOPIXELS 17
+#define STATUS_LED LED_BUILTIN
+#define STATUS_LED_INVERTED true
 
 long riseTime = 0;                 // Time the ISS will rise for current position
 long currentTime = 0;              // Current time for GMT
@@ -138,8 +140,8 @@ bool getNextPass()
 void setup()
 {
   Serial.begin(115200);
-  pinMode(LED_BUILTIN, OUTPUT);    //LED Pin
-  digitalWrite(LED_BUILTIN, HIGH); // invert if HIGH == ON
+  pinMode(STATUS_LED, OUTPUT);    //LED Pin
+  digitalWrite(STATUS_LED, (STATUS_LED_INVERTED == true) ? HIGH : LOW); // invert if HIGH == ON
 
   pixels.begin();
   pixels.setBrightness(100);
@@ -162,12 +164,12 @@ void loop()
     while ((WiFi.status() != WL_CONNECTED) && (waitTime < 300))
     {
       Serial.print(".");
-      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+      digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
       delay(100);
       waitTime++;
     }
 
-    digitalWrite(LED_BUILTIN, HIGH); // invert if HIGH == ON
+    digitalWrite(STATUS_LED, (STATUS_LED_INVERTED == true) ? HIGH : LOW);
 
     if (WiFi.status() == WL_CONNECTED)
     {
