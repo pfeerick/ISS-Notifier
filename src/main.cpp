@@ -87,7 +87,7 @@ bool getCurrentTime()
   }
   else
   {
-    Serial.println("getCurrentTime(): Error on HTTP request");
+    Serial.printf("getCurrentTime(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
     return false;
   }
 }
@@ -130,7 +130,7 @@ bool getNextPass()
   }
   else
   {
-    Serial.println("getNextPass(): Error on HTTP request");
+    Serial.printf("getNextPass(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
     return false;
   }
 }
