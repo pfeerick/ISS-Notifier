@@ -138,8 +138,8 @@ bool getNextPass()
 void setup()
 {
   Serial.begin(115200);
-  pinMode(STATUS_LED, OUTPUT);    //LED Pin
-  digitalWrite(STATUS_LED, (STATUS_LED_INVERTED == true) ? HIGH : LOW); // invert if HIGH == ON
+  pinMode(STATUS_LED, OUTPUT); //LED Pin
+  digitalWrite(STATUS_LED, (STATUS_LED_INVERTED == true) ? HIGH : LOW);
 
   pixels.begin();
   pixels.setBrightness(100);
