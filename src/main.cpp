@@ -146,7 +146,7 @@ void setup()
   pixels.show();
 
   Serial.println("");
-  Serial.println("ISS Flyover Notifier");
+  Serial.println(F("ISS Flyover Notifier"));
   Serial.println("");
 }
 
@@ -157,7 +157,7 @@ void loop()
   case WIFI_INIT:
   {
     WiFi.begin(ssid, password);
-    Serial.print("WiFi Connecting...");
+    Serial.print(F("WiFi Connecting..."));
     int waitTime = 0;
     while ((WiFi.status() != WL_CONNECTED) && (waitTime < 300))
     {
@@ -178,7 +178,7 @@ void loop()
     else
     {
       Serial.println("FAIL!");
-      Serial.print("Device will restart in ");
+      Serial.print(F("Device will restart in "));
       for (int i = 5; i >= 1; i--)
       {
         Serial.print(i);
@@ -205,7 +205,7 @@ void loop()
   }
   case GET_TIME:
   {
-    Serial.println("Getting the current time (GMT)...");
+    Serial.println(F("Getting the current time (GMT)..."));
     if (!getCurrentTime())
     {
       fail();
@@ -215,7 +215,7 @@ void loop()
     {
       success();
 
-      Serial.print("Current time (GMT) = ");
+      Serial.print(F("Current time (GMT) = "));
       Serial.println(currentTime);
 
       currentState = GET_NEXT_PASS;
@@ -224,7 +224,7 @@ void loop()
   }
   case GET_NEXT_PASS:
   {
-    Serial.println("Looking up next ISS flyover time...");
+    Serial.println(F("Looking up next ISS flyover time..."));
     if (!getNextPass())
     {
       fail();
@@ -240,7 +240,7 @@ void loop()
       Serial.print("Risetime = ");
       Serial.println(riseTime);
 
-      Serial.print("Time until flyover (in seconds): ");
+      Serial.print(F("Time until flyover (in seconds): "));
       Serial.println(timeUntilFlyover);
 
       uint32_t t = timeUntilFlyover;
@@ -287,7 +287,7 @@ void loop()
   case PASS_START:
   {
     //when ISS rises  above the horizon
-    Serial.println("ISS overhead!");
+    Serial.println(F("ISS overhead!"));
 
     uint32_t t = timeUntilFlyoverComplete;
     int s = t % 60;
