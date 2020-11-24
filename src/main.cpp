@@ -106,13 +106,13 @@ bool getCurrentTime()
     }
     else
     {
-      Serial.printf("getNextPass(): HTTP request failed, server response: %03i\n", httpCode);
+      Serial.printf("getCurrentTime(): HTTP request failed, server response: %03i\n", httpCode);
       return false;
     }
   }
   else
   {
-    Serial.printf("getNextPass(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf("getCurrentTime(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
     return false;
   }
 }
