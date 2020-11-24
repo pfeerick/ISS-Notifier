@@ -32,7 +32,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #endif
 
 long riseTime = 0;                 // Time the ISS will rise for current position
-long currentTime = 0;              // Current time for GMT
+long currentTime = 0;              // Current time (UTC)
 long flyoverDuration = 0;          // Duration of ISS pass for current position
 long timeUntilFlyover = 0;         // How long it will be until the next flyover
 long timeUntilFlyoverComplete = 0; // How long it will be until the current flyover is complete
@@ -76,11 +76,11 @@ void fail()
   pixels.show();
 }
 
-// Current time (GMT)
+// Current time (UTC)
 bool getCurrentTime()
 {
   HTTPClient http;
-  http.begin(client, "http://worldtimeapi.org/api/timezone/europe/london"); //URL for getting the current time
+  http.begin(client, "http://worldtimeapi.org/api/timezone/etc/utc"); // URL for getting the current time
   int httpCode = http.GET();
 
   if (httpCode == HTTP_CODE_OK)
@@ -243,7 +243,7 @@ void loop()
   }
   case GET_TIME:
   {
-    Serial.println(F("Getting the current time (GMT)..."));
+    Serial.println(F("Getting the current time (UTC)..."));
 
 #ifdef USE_OLED
     display.clearDisplay();
@@ -266,7 +266,7 @@ void loop()
     {
       success();
 
-      Serial.print(F("Current time (GMT) = "));
+      Serial.print(F("Current time (UTC) = "));
       Serial.println(currentTime);
 
       currentState = GET_NEXT_PASS;
