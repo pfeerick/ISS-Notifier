@@ -81,29 +81,38 @@ bool getCurrentTime()
 {
   HTTPClient http;
   http.begin(client, "http://worldtimeapi.org/api/timezone/etc/utc"); // URL for getting the current time
+
   int httpCode = http.GET();
+  if (httpCode > 0)
+  {
+    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
+    { //Check for the returning code
+      String payload = http.getString();
 
-  if (httpCode == HTTP_CODE_OK)
-  { //Check for the returning code
-    String payload = http.getString();
+      const size_t capacity = JSON_OBJECT_SIZE(15) + 550;
+      DynamicJsonDocument doc(capacity);
+      DeserializationError error = deserializeJson(doc, payload);
+      http.end();
 
-    const size_t capacity = JSON_OBJECT_SIZE(15) + 550;
-    DynamicJsonDocument doc(capacity);
-    DeserializationError error = deserializeJson(doc, payload);
-    http.end();
+      if (error)
+      {
+        Serial.print(F("deserializeJson() failed(current time): "));
+        Serial.println(error.c_str());
+        return false;
+      }
 
-    if (error)
+      currentTime = doc["unixtime"]; //save current time
+      return true;
+    }
+    else
     {
-      Serial.print(F("deserializeJson() failed(current time): "));
-      Serial.println(error.c_str());
+      Serial.printf("getNextPass(): HTTP request failed, server response: %03i\n", httpCode);
       return false;
     }
-    currentTime = doc["unixtime"]; //save current time
-    return true;
   }
   else
   {
-    Serial.printf("getCurrentTime(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf("getNextPass(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
     return false;
   }
 }
@@ -111,38 +120,45 @@ bool getCurrentTime()
 bool getNextPass()
 {
   HTTPClient http;
+
   http.begin(client, "http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
 
   int httpCode = http.GET();
-
-  if (httpCode == HTTP_CODE_OK)
+  if (httpCode > 0)
   {
-    String payload = http.getString(); //save response
-
-    const size_t capacity = JSON_ARRAY_SIZE(5) + 5 * JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 190;
-    DynamicJsonDocument doc(capacity);
-    DeserializationError error = deserializeJson(doc, payload);
-
-    http.end();
-
-    if (error)
+    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
     {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.c_str());
+      String payload = http.getString(); //save response
+
+      const size_t capacity = JSON_ARRAY_SIZE(5) + 5 * JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 190;
+      DynamicJsonDocument doc(capacity);
+      DeserializationError error = deserializeJson(doc, payload);
+      http.end();
+
+      if (error)
+      {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.c_str());
+        return false;
+      }
+
+      JsonArray response = doc["response"];
+      flyoverDuration = response[0]["duration"]; // save duration of the next flyover
+      riseTime = response[0]["risetime"];        // save start time of the next flyover
+
+      if (riseTime < currentTime)
+      { //If ISS has already passed, take the next flyover
+        flyoverDuration = response[1]["duration"];
+        riseTime = response[1]["risetime"];
+      }
+
+      return true;
+    }
+    else
+    {
+      Serial.printf("getNextPass(): HTTP request failed, server response: %03i\n", httpCode);
       return false;
     }
-
-    JsonArray response = doc["response"];
-    flyoverDuration = response[0]["duration"]; // save duration of the next flyover
-    riseTime = response[0]["risetime"];        // save start time of the next flyover
-
-    if (riseTime < currentTime)
-    { //If ISS has already passed, take the next flyover
-      flyoverDuration = response[1]["duration"];
-      riseTime = response[1]["risetime"];
-    }
-
-    return true;
   }
   else
   {
