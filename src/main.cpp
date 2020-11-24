@@ -184,7 +184,7 @@ void setup()
 #ifdef USE_OLED
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR))
   {
-    Serial.println(F("SSD1306 initalisation failed"));
+    Serial.println(F("SSD1306 initialisation failed"));
   }
   display.setRotation(OLED_ROTATION);
   display.clearDisplay();
