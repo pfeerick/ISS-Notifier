@@ -8,3 +8,6 @@ It has been adapted to be usable out of the box if you use PlatformIO, with the 
 The code defaults to the Neopixel ring being connected to `D3`, in order to allow `LED_BUILTIN` (`D4` on the Wemos D1 Mini) to be used as a blinking indicator whilst the WiFi connection is being established.
 
 If you need to change this, or the length of the Neopixel string, you can change `NEOPIXEL_PIN` and `NUM_OF_NEOPIXELS` near the top of the main source code, as well as `STATUS_LED` and `STATUS_LED_INVERTED` which allow you to change the status LED and set if it is active high or active low. 
+
+There is also the startings of OLED display support, which is designed around a 0.91" 128x32 SSD1306 OLED display. If you enable suppot via the `USE_OLED` define, messages will be shown during startup, and the countdown till the next pass, and until the current pass is over will be shown. The gap that is presently on the left side is where a mini ISS logo will eventually go.
+

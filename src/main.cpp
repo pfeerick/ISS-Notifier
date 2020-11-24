@@ -2,18 +2,34 @@
  * Original code written by pollux labs, 2020
  * URL: https://gist.github.com/polluxlabs/1ba7824175c5e011565bd61af2fd1c6b
  */
-#include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ArduinoJson.h>
-#include <ESP8266HTTPClient.h>
-#include <ESP8266WiFi.h>
-#include <Adafruit_NeoPixel.h>
-#include "secrets.h"
+// #define USE_OLED
+#define SCREEN_WIDTH 128   // OLED display width, in pixels
+#define SCREEN_HEIGHT 32   // OLED display height, in pixels
+#define OLED_RESET -1      // Reset pin # (-1 if sharing Arduino reset pin or no reset pin)
+#define OLED_I2C_ADDR 0x3C // Displays I2C address
+#define OLED_ROTATION 0    // 0 = 0, 1 = 90, 2 = 180 or 3 = 270 (degree rotation)
 
 #define NEOPIXEL_PIN D3
 #define NUM_OF_NEOPIXELS 12
 #define STATUS_LED LED_BUILTIN
 #define STATUS_LED_INVERTED true
+
+#include <Arduino.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266WiFi.h>
+#include <ArduinoJson.h>
+#include <Adafruit_NeoPixel.h>
+#ifdef USE_OLED
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#endif
+#include "secrets.h"
+
+#ifdef USE_OLED
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#endif
 
 long riseTime = 0;                 // Time the ISS will rise for current position
 long currentTime = 0;              // Current time for GMT
@@ -148,6 +164,15 @@ void setup()
   Serial.println("");
   Serial.println(F("ISS Flyover Notifier"));
   Serial.println("");
+
+#ifdef USE_OLED
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR))
+  {
+    Serial.println(F("SSD1306 initalisation failed"));
+  }
+  display.setRotation(OLED_ROTATION);
+  display.clearDisplay();
+#endif
 }
 
 void loop()
@@ -158,6 +183,19 @@ void loop()
   {
     WiFi.begin(ssid, password);
     Serial.print(F("WiFi Connecting..."));
+
+#ifdef USE_OLED
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(30, 0);
+    // Display static text
+    display.print("Connect");
+    display.setCursor(32, 16);
+    display.print("to WiFi");
+    display.display();
+#endif
+
     int waitTime = 0;
     while ((WiFi.status() != WL_CONNECTED) && (waitTime < 300))
     {
@@ -206,6 +244,19 @@ void loop()
   case GET_TIME:
   {
     Serial.println(F("Getting the current time (GMT)..."));
+
+#ifdef USE_OLED
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(30, 0);
+    // Display static text
+    display.println("Get UTC");
+    display.setCursor(32, 16);
+    display.println("Time");
+    display.display();
+#endif
+
     if (!getCurrentTime())
     {
       fail();
@@ -225,6 +276,18 @@ void loop()
   case GET_NEXT_PASS:
   {
     Serial.println(F("Looking up next ISS flyover time..."));
+
+#ifdef USE_OLED
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(30, 0);
+    display.println("Get Next");
+    display.setCursor(32, 16);
+    display.println("ISS Pass");
+    display.display();
+#endif
+
     if (!getNextPass())
     {
       fail();
@@ -275,6 +338,18 @@ void loop()
       int h = t;
       Serial.printf("Next ISS flyover in %02i:%02i:%02i\n", h, m, s);
 
+#ifdef USE_OLED
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(30, 0);
+      display.print("Next pass in:");
+      display.setTextSize(2);
+      display.setCursor(32, 16);
+      display.printf("%02i:%02i:%02i", h, m, s);
+      display.display();
+#endif
+
       timeUntilFlyover--;
       delay(1000);
     }
@@ -317,6 +392,19 @@ void loop()
       t = (t - s) / 60;
       int m = t % 60;
       Serial.printf("Pass time remaining: %02i minutes and %02i second(s)\n", m, s);
+
+#ifdef USE_OLED
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(30, 0);
+      display.print("Overhead!");
+      display.setTextSize(2);
+      display.setCursor(32, 16);
+      display.printf("%02i:%02i", m, s);
+      display.display();
+#endif
+
       delay(1000);
     }
     else
