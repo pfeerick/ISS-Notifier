@@ -80,7 +80,7 @@ void fail()
 bool getCurrentTime()
 {
   HTTPClient http;
-  http.begin(client, "http://worldtimeapi.org/api/timezone/etc/utc"); // URL for getting the current time
+  http.begin(client, "http://worldtimeapi.org/api/timezone/Etc/UTC"); // URL for getting the current time
 
   int httpCode = http.GET();
   if (httpCode > 0)
@@ -120,7 +120,6 @@ bool getCurrentTime()
 bool getNextPass()
 {
   HTTPClient http;
-
   http.begin(client, "http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
 
   int httpCode = http.GET();
