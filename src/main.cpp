@@ -192,6 +192,7 @@ void setup()
 
 void loop()
 {
+  unsigned long loopStart = millis();
   switch (currentState)
   {
   case WIFI_INIT:
@@ -366,7 +367,9 @@ void loop()
 #endif
 
       timeUntilFlyover--;
-      delay(1000);
+
+      unsigned long loopOverhead = millis() - loopStart;
+      delay(1000 - loopOverhead);
     }
     else
     {
@@ -420,7 +423,8 @@ void loop()
       display.display();
 #endif
 
-      delay(1000);
+      unsigned long loopOverhead = millis() - loopStart;
+      delay(1000 - loopOverhead);
     }
     else
     {
