@@ -6,7 +6,6 @@ tasks:
 
 vscode:
   extensions:
-    - ms-vscode.cpptools@1.1.2
-    - platformio.platformio-ide@2.2.1
-    - eamodio.gitlens@11.0.6
-    - 2gua.rainbow-brackets@0.0.6
+    - ms-vscode.cpptools@1.1.2:TF4Nx06hqY/irDWq5PrlxQ==
+    - eamodio.gitlens@10.2.1:e0IYyp0efFqVsrZwsIe8CA==
+    - 2gua.rainbow-brackets@0.0.6:Tbu8dTz0i+/bgcKQTQ5b8g==
