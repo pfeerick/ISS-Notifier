@@ -1,0 +1,11 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - command: platformio run -e d1_mini
+
+vscode:
+  extensions:
+    - ms-vscode.cpptools@1.1.2:TF4Nx06hqY/irDWq5PrlxQ==
+    - eamodio.gitlens@10.2.1:e0IYyp0efFqVsrZwsIe8CA==
+    - 2gua.rainbow-brackets@0.0.6:Tbu8dTz0i+/bgcKQTQ5b8g==
