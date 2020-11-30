@@ -10,7 +10,9 @@
 #define OLED_ROTATION 0    // 0 = 0, 1 = 90, 2 = 180 or 3 = 270 (degree rotation)
 
 #define NEOPIXEL_PIN D3
+#ifndef NUM_OF_NEOPIXELS
 #define NUM_OF_NEOPIXELS 12
+#endif
 #define STATUS_LED LED_BUILTIN
 #define STATUS_LED_INVERTED true
 
