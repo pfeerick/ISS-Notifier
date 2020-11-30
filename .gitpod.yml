@@ -2,8 +2,7 @@ image:
   file: .gitpod.Dockerfile
 
 tasks:
-  - init: platformio init --ide vscode
-  command: platformio run -e d1_mini
+  - command: platformio init --ide vscode && platformio run -e d1_mini
 
 vscode:
   extensions:
