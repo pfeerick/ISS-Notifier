@@ -14,3 +14,7 @@ If you need to change this, or the length of the Neopixel string, you can change
 There is also the startings of OLED display support, which is designed around a 0.91" 128x32 SSD1306 OLED display. If you enable support via the `USE_OLED` define, status messages will be shown on the display, and there will be a countdown shown for time remaining until the next pass or altenately the time remaining for hte current pass. The gap that is presently on the left side is where a mini ISS logo will eventually go.
 
 The current UTC time is determined by querying the [World Time API](http://worldtimeapi.org), which is a service that provides the local-time for a given timezone in both unixtime and  ISO8601 format. This project runs at a loss, so if you like or found ISS Notifier useful, please consider a [small monthly donation](https://liberapay.com/WorldTimeAPI) toto keep the World Time API going, so other projects like this can continue benefit from its continued operation.
+
+There is now the beginnings of rudimentary timezone support. You can configure this also in the `include/secrets.h` file. The instructions on [how to format the timezone rule are here](https://github.com/JChristensen/Timezone#coding-timechangerules).
+
+PlatformIO build environments can be used to set defines, and strings (via `build_flags`, so it is also possible to use different build environments for different SSIDs, configurations, etc. There is an example of this presently for the 17 pixel string I am using for testing, which also enables the OLED support.

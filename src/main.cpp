@@ -27,6 +27,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #endif
+#include <TimeLib.h>
+#include <Timezone.h>
+
 #include "secrets.h"
 
 #ifdef USE_OLED
@@ -38,6 +41,7 @@ long currentTime = 0;              // Current time (UTC)
 long flyoverDuration = 0;          // Duration of ISS pass for current position
 long timeUntilFlyover = 0;         // How long it will be until the next flyover
 long timeUntilFlyoverComplete = 0; // How long it will be until the current flyover is complete
+time_t utcTime;                    // Current UTC time
 
 enum machineStates
 {
@@ -143,6 +147,12 @@ bool getNextPass()
         return false;
       }
 
+      JsonObject request = doc["request"];
+      long request_datetime = request["datetime"];
+      Serial.printf("ISS API dt   : %02d:%02d:%02d %02d-%02d-%4d (UTC)\n",
+                    hour(request_datetime), minute(request_datetime), second(request_datetime),
+                    day(request_datetime), month(request_datetime), year(request_datetime));
+
       JsonArray response = doc["response"];
       flyoverDuration = response[0]["duration"]; // save duration of the next flyover
       riseTime = response[0]["risetime"];        // save start time of the next flyover
@@ -152,6 +162,15 @@ bool getNextPass()
         flyoverDuration = response[1]["duration"];
         riseTime = response[1]["risetime"];
       }
+
+      Serial.printf("Next pass at : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
+                    hour(riseTime), minute(riseTime), second(riseTime), day(riseTime), month(riseTime), year(riseTime));
+
+      TimeChangeRule *tcr;
+      time_t t = myTz.toLocal(riseTime, &tcr);
+
+      Serial.printf("             : %02d:%02d:%02d %02d-%02d-%04d (%s)\n",
+                    hour(t), minute(t), second(t), day(t), month(t), year(t), tcr->abbrev);
 
       return true;
     }
@@ -284,8 +303,11 @@ void loop()
     {
       success();
 
-      Serial.print(F("Current time (UTC) = "));
-      Serial.println(currentTime);
+      utcTime = currentTime;
+
+      Serial.printf("Current time : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
+                    hour(utcTime), minute(utcTime), second(utcTime),
+                    day(utcTime), month(utcTime), year(utcTime));
 
       currentState = GET_NEXT_PASS;
     }
@@ -317,12 +339,6 @@ void loop()
 
       //compute time until rise
       timeUntilFlyover = riseTime - currentTime;
-
-      Serial.print("Risetime = ");
-      Serial.println(riseTime);
-
-      Serial.print(F("Time until flyover (in seconds): "));
-      Serial.println(timeUntilFlyover);
 
       uint32_t t = timeUntilFlyover;
       int s = t % 60;
