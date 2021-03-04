@@ -60,132 +60,10 @@ enum machineStates currentState = WIFI_INIT;
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_NEOPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 WiFiClient client;
 
-void success()
-{
-  pixels.fill(pixels.Color(0, 255, 0));
-  pixels.show();
-
-  delay(500);
-
-  pixels.clear();
-  pixels.show();
-}
-
-void fail()
-{
-  pixels.fill(pixels.Color(255, 0, 0));
-  pixels.show();
-
-  delay(500);
-
-  pixels.clear();
-  pixels.show();
-}
-
-// Current time (UTC)
-bool getCurrentTime()
-{
-  HTTPClient http;
-  http.begin(client, "http://worldtimeapi.org/api/timezone/Etc/UTC"); // URL for getting the current time
-
-  int httpCode = http.GET();
-  if (httpCode > 0)
-  {
-    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
-    { //Check for the returning code
-      String payload = http.getString();
-
-      const size_t capacity = JSON_OBJECT_SIZE(15) + 550;
-      DynamicJsonDocument doc(capacity);
-      DeserializationError error = deserializeJson(doc, payload);
-      http.end();
-
-      if (error)
-      {
-        Serial.print(F("deserializeJson() failed(current time): "));
-        Serial.println(error.c_str());
-        return false;
-      }
-
-      currentTime = doc["unixtime"]; //save current time
-      return true;
-    }
-    else
-    {
-      Serial.printf("getCurrentTime(): HTTP request failed, server response: %03i\n", httpCode);
-      return false;
-    }
-  }
-  else
-  {
-    Serial.printf("getCurrentTime(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
-    return false;
-  }
-}
-
-bool getNextPass()
-{
-  HTTPClient http;
-  http.begin(client, "http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
-
-  int httpCode = http.GET();
-  if (httpCode > 0)
-  {
-    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
-    {
-      String payload = http.getString(); //save response
-
-      const size_t capacity = JSON_ARRAY_SIZE(5) + 5 * JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 190;
-      DynamicJsonDocument doc(capacity);
-      DeserializationError error = deserializeJson(doc, payload);
-      http.end();
-
-      if (error)
-      {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.c_str());
-        return false;
-      }
-
-      JsonObject request = doc["request"];
-      long request_datetime = request["datetime"];
-      Serial.printf("ISS API dt   : %02d:%02d:%02d %02d-%02d-%4d (UTC)\n",
-                    hour(request_datetime), minute(request_datetime), second(request_datetime),
-                    day(request_datetime), month(request_datetime), year(request_datetime));
-
-      JsonArray response = doc["response"];
-      flyoverDuration = response[0]["duration"]; // save duration of the next flyover
-      riseTime = response[0]["risetime"];        // save start time of the next flyover
-
-      if (riseTime < currentTime)
-      { //If ISS has already passed, take the next flyover
-        flyoverDuration = response[1]["duration"];
-        riseTime = response[1]["risetime"];
-      }
-
-      Serial.printf("Next pass at : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
-                    hour(riseTime), minute(riseTime), second(riseTime), day(riseTime), month(riseTime), year(riseTime));
-
-      TimeChangeRule *tcr;
-      time_t t = myTz.toLocal(riseTime, &tcr);
-
-      Serial.printf("             : %02d:%02d:%02d %02d-%02d-%04d (%s)\n",
-                    hour(t), minute(t), second(t), day(t), month(t), year(t), tcr->abbrev);
-
-      return true;
-    }
-    else
-    {
-      Serial.printf("getNextPass(): HTTP request failed, server response: %03i\n", httpCode);
-      return false;
-    }
-  }
-  else
-  {
-    Serial.printf("getNextPass(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
-    return false;
-  }
-}
+void success();
+void fail();
+bool getCurrentTime();
+bool getNextPass();
 
 void setup()
 {
@@ -459,5 +337,132 @@ void loop()
     currentState = START;
     break;
   }
+  }
+}
+
+void success()
+{
+  pixels.fill(pixels.Color(0, 255, 0));
+  pixels.show();
+
+  delay(500);
+
+  pixels.clear();
+  pixels.show();
+}
+
+void fail()
+{
+  pixels.fill(pixels.Color(255, 0, 0));
+  pixels.show();
+
+  delay(500);
+
+  pixels.clear();
+  pixels.show();
+}
+
+// Current time (UTC)
+bool getCurrentTime()
+{
+  HTTPClient http;
+  http.begin(client, "http://worldtimeapi.org/api/timezone/Etc/UTC"); // URL for getting the current time
+
+  int httpCode = http.GET();
+  if (httpCode > 0)
+  {
+    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
+    { //Check for the returning code
+      String payload = http.getString();
+
+      const size_t capacity = JSON_OBJECT_SIZE(15) + 550;
+      DynamicJsonDocument doc(capacity);
+      DeserializationError error = deserializeJson(doc, payload);
+      http.end();
+
+      if (error)
+      {
+        Serial.print(F("deserializeJson() failed(current time): "));
+        Serial.println(error.c_str());
+        return false;
+      }
+
+      currentTime = doc["unixtime"]; //save current time
+      return true;
+    }
+    else
+    {
+      Serial.printf("getCurrentTime(): HTTP request failed, server response: %03i\n", httpCode);
+      return false;
+    }
+  }
+  else
+  {
+    Serial.printf("getCurrentTime(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
+    return false;
+  }
+}
+
+bool getNextPass()
+{
+  HTTPClient http;
+  http.begin(client, "http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
+
+  int httpCode = http.GET();
+  if (httpCode > 0)
+  {
+    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
+    {
+      String payload = http.getString(); //save response
+
+      const size_t capacity = JSON_ARRAY_SIZE(5) + 5 * JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 190;
+      DynamicJsonDocument doc(capacity);
+      DeserializationError error = deserializeJson(doc, payload);
+      http.end();
+
+      if (error)
+      {
+        Serial.print(F("deserializeJson() failed: "));
+        Serial.println(error.c_str());
+        return false;
+      }
+
+      JsonObject request = doc["request"];
+      long request_datetime = request["datetime"];
+      Serial.printf("ISS API dt   : %02d:%02d:%02d %02d-%02d-%4d (UTC)\n",
+                    hour(request_datetime), minute(request_datetime), second(request_datetime),
+                    day(request_datetime), month(request_datetime), year(request_datetime));
+
+      JsonArray response = doc["response"];
+      flyoverDuration = response[0]["duration"]; // save duration of the next flyover
+      riseTime = response[0]["risetime"];        // save start time of the next flyover
+
+      if (riseTime < currentTime)
+      { //If ISS has already passed, take the next flyover
+        flyoverDuration = response[1]["duration"];
+        riseTime = response[1]["risetime"];
+      }
+
+      Serial.printf("Next pass at : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
+                    hour(riseTime), minute(riseTime), second(riseTime), day(riseTime), month(riseTime), year(riseTime));
+
+      TimeChangeRule *tcr;
+      time_t t = myTz.toLocal(riseTime, &tcr);
+
+      Serial.printf("             : %02d:%02d:%02d %02d-%02d-%04d (%s)\n",
+                    hour(t), minute(t), second(t), day(t), month(t), year(t), tcr->abbrev);
+
+      return true;
+    }
+    else
+    {
+      Serial.printf("getNextPass(): HTTP request failed, server response: %03i\n", httpCode);
+      return false;
+    }
+  }
+  else
+  {
+    Serial.printf("getNextPass(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
+    return false;
   }
 }
