@@ -16,10 +16,12 @@
 #define STATUS_LED LED_BUILTIN
 #define STATUS_LED_INVERTED true
 
+#define OTA_HOSTNAME "ISS-Notifier"
+
 #include <Arduino.h>
 #include <ESP8266HTTPClient.h>
-#include <ESP8266WiFi.h>
-#include <ArduinoJson.h>
+#include <ESP8266WiFi.h> // ESP8266 WiFi support
+#include <ArduinoJson.h> // JSON processor
 #include <Adafruit_NeoPixel.h>
 #ifdef USE_OLED
 #include <SPI.h>
@@ -29,6 +31,13 @@
 #endif
 #include <TimeLib.h>
 #include <Timezone.h>
+#include <WiFiManager.h>       // WiFi Configuration Portal
+#include <ESP8266mDNS.h>       // mDNS (for OTA support)
+#include <WiFiUdp.h>           // UDP (for OTA support)
+#include <ArduinoOTA.h>        // OTA update support
+#include <DoubleResetDetect.h> // Detect double Reset
+#include <WiFiUdp.h>           // For NTP
+#include <Ticker.h>
 
 #include "secrets.h"
 
@@ -36,16 +45,21 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #endif
 
-long riseTime = 0;                 // Time the ISS will rise for current position
-long currentTime = 0;              // Current time (UTC)
+long riseTime = 0; // Time the ISS will rise for current position
 long flyoverDuration = 0;          // Duration of ISS pass for current position
 long timeUntilFlyover = 0;         // How long it will be until the next flyover
 long timeUntilFlyoverComplete = 0; // How long it will be until the current flyover is complete
-time_t utcTime;                    // Current UTC time
+int heartbeatCounter = 0;          // Interval counter for periodic heartbeat flash
+
+// A UDP instance to let us send and receive packets over UDP
+WiFiUDP udp;
+unsigned int localPort = 2390; // local port to listen for UDP packets
+
+const int NTP_PACKET_SIZE = 48;     // NTP time is in the first 48 bytes of message
+byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming & outgoing packets
 
 enum machineStates
 {
-  WIFI_INIT,
   START,
   GET_TIME,
   GET_NEXT_PASS,
@@ -55,15 +69,26 @@ enum machineStates
   PASS_COMPLETE
 };
 
-enum machineStates currentState = WIFI_INIT;
+enum machineStates currentState = START;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_NEOPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 WiFiClient client;
+Ticker ticker;
+
+#define DRD_TIMEOUT 2.0  // number of seconds between resets that counts as a double reset
+#define DRD_ADDRESS 0x00 // address to the block in the RTC user memory
+DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 void success();
 void fail();
-bool getCurrentTime();
 bool getNextPass();
+void wifiSetup();
+void configModeCallback(WiFiManager *myWiFiManager);
+void otaSetup();
+void tick();
+void heartbeat();
+time_t getNtpTime();
+void sendNTPpacket(IPAddress &address);
 
 void setup()
 {
@@ -87,62 +112,38 @@ void setup()
   display.setRotation(OLED_ROTATION);
   display.clearDisplay();
 #endif
+
+  // Wifi
+  wifiSetup();
+
+  // OTA init
+  otaSetup();
+
+  udp.begin(localPort);
+  Serial.print(F("UDP: Running on local port "));
+  Serial.println(udp.localPort());
+
+  setSyncProvider(getNtpTime);
+  setSyncInterval(28800); //every eight hours
+
+  // entering normal runtime, clear WiFi ticker
+  digitalWrite(STATUS_LED, (STATUS_LED_INVERTED == true) ? HIGH : LOW);
+  ticker.attach(0.2, heartbeat);
+  // If you don't want the heartbeat, do this instead of the above line
+  // ticker.detach();
 }
 
 void loop()
 {
+  // Allow MDNS discovery
+  MDNS.update();
+
+  // Poll / handle OTA programming
+  ArduinoOTA.handle();
+
   unsigned long loopStart = millis();
   switch (currentState)
   {
-  case WIFI_INIT:
-  {
-    WiFi.begin(ssid, password);
-    Serial.print(F("WiFi Connecting..."));
-
-#ifdef USE_OLED
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(WHITE);
-    display.setCursor(30, 0);
-    // Display static text
-    display.print("Connect");
-    display.setCursor(32, 16);
-    display.print("to WiFi");
-    display.display();
-#endif
-
-    int waitTime = 0;
-    while ((WiFi.status() != WL_CONNECTED) && (waitTime < 300))
-    {
-      Serial.print(".");
-      digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
-      delay(100);
-      waitTime++;
-    }
-
-    digitalWrite(STATUS_LED, (STATUS_LED_INVERTED == true) ? HIGH : LOW);
-
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      success();
-      Serial.println("CONNECTED!");
-      currentState = START;
-    }
-    else
-    {
-      Serial.println("FAIL!");
-      Serial.print(F("Device will restart in "));
-      for (int i = 5; i >= 1; i--)
-      {
-        Serial.print(i);
-        Serial.print("...");
-        fail();
-        delay(500);
-      }
-      ESP.restart();
-    }
-    break;
-  }
   case START:
   {
     if (WiFi.status() == WL_CONNECTED)
@@ -151,14 +152,14 @@ void loop()
     }
     else
     {
-      currentState = WIFI_INIT;
+      wifiSetup();
     }
 
     break;
   }
   case GET_TIME:
   {
-    Serial.println(F("Getting the current time (UTC)..."));
+    Serial.println(F("Getting the current time..."));
 
 #ifdef USE_OLED
     display.clearDisplay();
@@ -172,20 +173,27 @@ void loop()
     display.display();
 #endif
 
-    if (!getCurrentTime())
+    if (timeStatus() == timeNotSet)
+    {
+      getNtpTime();
+    }
+
+    if (timeStatus() == timeNotSet)
     {
       fail();
       delay(1000);
     }
     else
     {
-      success();
+      Serial.printf("Current time        : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
+                    hour(), minute(), second(),
+                    day(), month(), year());
 
-      utcTime = currentTime;
+      TimeChangeRule *tcr;
+      time_t t = myTz.toLocal(now(), &tcr);
 
-      Serial.printf("Current time : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
-                    hour(utcTime), minute(utcTime), second(utcTime),
-                    day(utcTime), month(utcTime), year(utcTime));
+      Serial.printf("                    : %02d:%02d:%02d %02d-%02d-%04d (%s)\n",
+                    hour(t), minute(t), second(t), day(t), month(t), year(t), tcr->abbrev);
 
       currentState = GET_NEXT_PASS;
     }
@@ -216,7 +224,7 @@ void loop()
       success();
 
       //compute time until rise
-      timeUntilFlyover = riseTime - currentTime;
+      timeUntilFlyover = riseTime - now();
 
       uint32_t t = timeUntilFlyover;
       int s = t % 60;
@@ -362,47 +370,6 @@ void fail()
   pixels.show();
 }
 
-// Current time (UTC)
-bool getCurrentTime()
-{
-  HTTPClient http;
-  http.begin(client, "http://worldtimeapi.org/api/timezone/Etc/UTC"); // URL for getting the current time
-
-  int httpCode = http.GET();
-  if (httpCode > 0)
-  {
-    if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
-    { //Check for the returning code
-      String payload = http.getString();
-
-      const size_t capacity = JSON_OBJECT_SIZE(15) + 550;
-      DynamicJsonDocument doc(capacity);
-      DeserializationError error = deserializeJson(doc, payload);
-      http.end();
-
-      if (error)
-      {
-        Serial.print(F("deserializeJson() failed(current time): "));
-        Serial.println(error.c_str());
-        return false;
-      }
-
-      currentTime = doc["unixtime"]; //save current time
-      return true;
-    }
-    else
-    {
-      Serial.printf("getCurrentTime(): HTTP request failed, server response: %03i\n", httpCode);
-      return false;
-    }
-  }
-  else
-  {
-    Serial.printf("getCurrentTime(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
-    return false;
-  }
-}
-
 bool getNextPass()
 {
   HTTPClient http;
@@ -429,7 +396,7 @@ bool getNextPass()
 
       JsonObject request = doc["request"];
       long request_datetime = request["datetime"];
-      Serial.printf("ISS API dt   : %02d:%02d:%02d %02d-%02d-%4d (UTC)\n",
+      Serial.printf("ISS API Last Update : %02d:%02d:%02d %02d-%02d-%4d (UTC)\n",
                     hour(request_datetime), minute(request_datetime), second(request_datetime),
                     day(request_datetime), month(request_datetime), year(request_datetime));
 
@@ -437,19 +404,19 @@ bool getNextPass()
       flyoverDuration = response[0]["duration"]; // save duration of the next flyover
       riseTime = response[0]["risetime"];        // save start time of the next flyover
 
-      if (riseTime < currentTime)
+      if (riseTime < now())
       { //If ISS has already passed, take the next flyover
         flyoverDuration = response[1]["duration"];
         riseTime = response[1]["risetime"];
       }
 
-      Serial.printf("Next pass at : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
+      Serial.printf("Next pass at        : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
                     hour(riseTime), minute(riseTime), second(riseTime), day(riseTime), month(riseTime), year(riseTime));
 
       TimeChangeRule *tcr;
       time_t t = myTz.toLocal(riseTime, &tcr);
 
-      Serial.printf("             : %02d:%02d:%02d %02d-%02d-%04d (%s)\n",
+      Serial.printf("                    : %02d:%02d:%02d %02d-%02d-%04d (%s)\n",
                     hour(t), minute(t), second(t), day(t), month(t), year(t), tcr->abbrev);
 
       return true;
@@ -465,4 +432,179 @@ bool getNextPass()
     Serial.printf("getNextPass(): HTTP request failed, reason: %s\n", http.errorToString(httpCode).c_str());
     return false;
   }
+}
+
+/**
+ * @brief Setup WiFi connection
+ */
+void wifiSetup()
+{
+  // start ticker with 0.5 because we start in AP mode and try to connect
+  ticker.attach(0.5, tick);
+
+  WiFiManager wifiManager;
+
+  wifiManager.setAPCallback(configModeCallback);
+  wifiManager.setConfigPortalTimeout(300);
+
+  if (drd.detect())
+  {
+    Serial.println(F("Double reset detected, resetting WiFi config..."));
+    wifiManager.resetSettings();
+  }
+
+  if (!wifiManager.autoConnect(OTA_HOSTNAME))
+  {
+    Serial.println(F("Failed to connect and hit timeout"));
+    Serial.print(F("Device will restart in "));
+    for (int i = 5; i >= 1; i--)
+    {
+      Serial.print(i);
+      Serial.print("...");
+      fail();
+      delay(500);
+    }
+    // reset and try again
+    ESP.reset();
+    delay(1000);
+  }
+
+  Serial.printf("[WIFI] STATION Mode, SSID: %s, IP address: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+}
+
+/**
+ * @brief WiFi config mode
+ * @param myWiFiManager WifiManager object
+ */
+void configModeCallback(WiFiManager *myWiFiManager)
+{
+  Serial.println(F("Entered config mode"));
+  Serial.println(WiFi.softAPIP());
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+
+  //entered config mode, make led toggle faster
+  ticker.attach(0.2, tick);
+}
+
+/**
+ * @brief Over The Air update
+ */
+void otaSetup()
+{
+  /// OTA Update init
+  ArduinoOTA.setHostname(OTA_HOSTNAME);
+
+  ArduinoOTA.onStart([]() {
+    ticker.attach(0.1, tick);
+    Serial.println("\nOTA Start");
+  });
+
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nOTA End");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    int percentage = (progress / (total / 100));
+
+    Serial.printf("Progress: %u%%\r", percentage);
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR)
+      Serial.println(F("Auth Failed"));
+    else if (error == OTA_BEGIN_ERROR)
+      Serial.println(F("Begin Failed"));
+    else if (error == OTA_CONNECT_ERROR)
+      Serial.println(F("Connect Failed"));
+    else if (error == OTA_RECEIVE_ERROR)
+      Serial.println(F("Receive Failed"));
+    else if (error == OTA_END_ERROR)
+      Serial.println(F("End Failed"));
+  });
+
+  ArduinoOTA.begin();
+}
+
+/**
+ * @brief Status LED ticker
+ */
+void tick()
+{
+  //toggle state
+  int state = digitalRead(STATUS_LED); // get the current state of GPIO1 pin
+  digitalWrite(STATUS_LED, !state);    // set pin to the opposite state
+}
+
+void heartbeat()
+{
+  heartbeatCounter++;
+  //toggle state
+  if (digitalRead(STATUS_LED) == HIGH && heartbeatCounter > 25)
+  {
+    digitalWrite(STATUS_LED, LOW); // set pin to the opposite state
+  }
+  else if (digitalRead(STATUS_LED) == LOW && heartbeatCounter > 26)
+  {
+    digitalWrite(STATUS_LED, HIGH); // set pin to the opposite state
+    heartbeatCounter = 0;
+  }
+}
+
+/*-------- NTP code ----------*/
+time_t getNtpTime()
+{
+  IPAddress ntpServerIP; // NTP server's ip address
+
+  while (udp.parsePacket() > 0)
+    ; // discard any previously received packets
+  Serial.println(F("Transmiting NTP Request"));
+  // get a random server from the pool
+  WiFi.hostByName(ntpServerName, ntpServerIP);
+  Serial.print(ntpServerName);
+  Serial.print(": ");
+  Serial.println(ntpServerIP);
+  sendNTPpacket(ntpServerIP);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500)
+  {
+    int size = udp.parsePacket();
+    if (size >= NTP_PACKET_SIZE)
+    {
+      Serial.println(F("Reading NTP Response"));
+      udp.read(packetBuffer, NTP_PACKET_SIZE); // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 = (unsigned long)packetBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)packetBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)packetBuffer[43];
+      return secsSince1900 - 2208988800UL + 0 * SECS_PER_HOUR;
+    }
+  }
+  Serial.println(F("No NTP Response :-("));
+  return 0; // return 0 if unable to get the time
+}
+
+// send an NTP request to the time server at the given address
+void sendNTPpacket(IPAddress &address)
+{
+  Serial.println(F("Sending NTP packet..."));
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  packetBuffer[0] = 0b11100011; // LI, Version, Mode
+  packetBuffer[1] = 0;          // Stratum, or type of clock
+  packetBuffer[2] = 6;          // Polling Interval
+  packetBuffer[3] = 0xEC;       // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12] = 49;
+  packetBuffer[13] = 0x4E;
+  packetBuffer[14] = 49;
+  packetBuffer[15] = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  udp.beginPacket(address, 123); //NTP requests are to port 123
+  udp.write(packetBuffer, NTP_PACKET_SIZE);
+  udp.endPacket();
 }
