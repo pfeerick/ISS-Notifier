@@ -14,6 +14,10 @@ const char *password = "your password";
 const float latitude = 00.00;
 const float longitude = 00.00;
 const float altitude = 100.00;
+const int daysToLookup = 1;    // days ahead to look
+const int minVisibility = 180; // seconds
+static const char apiKey[] = "your-n2yo-api-key";
+static const char ntpServerName[] = "pool.ntp.org";
 
 /*** Your timezone ***/
 // How to set: https://github.com/JChristensen/Timezone#coding-timechangerules
