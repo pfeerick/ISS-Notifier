@@ -11,7 +11,7 @@
 
 #define NEOPIXEL_PIN D3
 #ifndef NUM_OF_NEOPIXELS
-#define NUM_OF_NEOPIXELS 12
+#define NUM_OF_NEOPIXELS 4
 #endif
 #define STATUS_LED LED_BUILTIN
 #define STATUS_LED_INVERTED true
@@ -45,7 +45,7 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #endif
 
-long riseTime = 0; // Time the ISS will rise for current position
+long riseTime = 0;                 // Time the ISS will rise for current position
 long flyoverDuration = 0;          // Duration of ISS pass for current position
 long timeUntilFlyover = 0;         // How long it will be until the next flyover
 long timeUntilFlyoverComplete = 0; // How long it will be until the current flyover is complete
@@ -72,7 +72,6 @@ enum machineStates
 enum machineStates currentState = START;
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_OF_NEOPIXELS, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
-WiFiClient client;
 Ticker ticker;
 
 #define DRD_TIMEOUT 2.0  // number of seconds between resets that counts as a double reset
@@ -373,7 +372,25 @@ void fail()
 bool getNextPass()
 {
   HTTPClient http;
-  http.begin(client, "http://api.open-notify.org/iss-pass.json?lat=" + String(latitude) + "&lon=" + String(longitude) + "&alt=" + String(altitude) + "&n=5"); //URL for API call
+  WiFiClientSecure client;
+  client.setInsecure(); //the magic line, use with caution
+
+  const char* apiUrl = "https://api.n2yo.com/rest/v1/satellite/visualpasses/";
+
+  String request = "25544/";  // ISS NORAD ID
+  request += String(latitude) + "/";
+  request += String(longitude) + "/";
+  request += String(altitude) + "/";
+  request += String(daysToLookup) + "/";
+  request += String(minVisibility) + "/";
+  request += "&apiKey=" + String(apiKey);
+
+  String fullUrl = apiUrl + request;
+
+  // Serial.print("fullUrl == ");
+  // Serial.println(fullUrl);
+
+  http.begin(client, fullUrl); //URL for API call
 
   int httpCode = http.GET();
   if (httpCode > 0)
@@ -382,7 +399,7 @@ bool getNextPass()
     {
       String payload = http.getString(); //save response
 
-      const size_t capacity = JSON_ARRAY_SIZE(5) + 5 * JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 190;
+      const size_t capacity = JSON_OBJECT_SIZE(10) + 1024;
       DynamicJsonDocument doc(capacity);
       DeserializationError error = deserializeJson(doc, payload);
       http.end();
@@ -394,21 +411,20 @@ bool getNextPass()
         return false;
       }
 
-      JsonObject request = doc["request"];
-      long request_datetime = request["datetime"];
-      Serial.printf("ISS API Last Update : %02d:%02d:%02d %02d-%02d-%4d (UTC)\n",
-                    hour(request_datetime), minute(request_datetime), second(request_datetime),
-                    day(request_datetime), month(request_datetime), year(request_datetime));
 
-      JsonArray response = doc["response"];
-      flyoverDuration = response[0]["duration"]; // save duration of the next flyover
-      riseTime = response[0]["risetime"];        // save start time of the next flyover
-
-      if (riseTime < now())
-      { //If ISS has already passed, take the next flyover
-        flyoverDuration = response[1]["duration"];
-        riseTime = response[1]["risetime"];
-      }
+      int i = 0;
+      do {
+        riseTime = doc["passes"][i]["startUTC"];
+        // Serial.print("Start UTC: ");
+        // Serial.println(riseTime);
+        // const int endUTC = doc["passes"][i]["endUTC"];
+        // Serial.print("End UTC: ");
+        // Serial.println(endUTC);
+        flyoverDuration = doc["passes"][i]["duration"];
+        // Serial.print("Duration: ");
+        // Serial.println(flyoverDuration);
+        i++;
+      } while (riseTime < now());
 
       Serial.printf("Next pass at        : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
                     hour(riseTime), minute(riseTime), second(riseTime), day(riseTime), month(riseTime), year(riseTime));
