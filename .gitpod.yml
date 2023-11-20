@@ -1,10 +1,9 @@
+tasks:
+  - command: pip3 install -U platformio && platformio run -e d1_mini
+
 image:
   file: .gitpod.Dockerfile
-
-tasks:
-  - command: platformio run -e d1_mini && platformio init --ide vscode
 
 vscode:
   extensions:
     - ms-vscode.cpptools
-    - eamodio.gitlens
