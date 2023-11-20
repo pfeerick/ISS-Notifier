@@ -5,8 +5,7 @@ Neopixel notifier for when the ISS goes overhead
 
 This project is inspired and based on this [Hackster project](https://www.hackster.io/pollux-labs/these-cubes-notify-you-when-the-iss-is-overhead-6bfaf8), and is based on [the code here](https://gist.github.com/polluxlabs/1ba7824175c5e011565bd61af2fd1c6b).
 
-> [!WARNING]  
-> I've recently noticed this no longer works, due to http://open-notify.org/ no longer providing the pass predictions this relied on. I'm investigating alternatives, but I'm not holding my breath.
+As [Open Notify](http://open-notify.org/) no longer provies pass predictions this codebase this relied on, I have now switched to using [N2YO.com](https://www.n2yo.com/). This is a  free service that lets you track the location of the ISS, as well as many other satelites in orbit, as well as offering an API that you can query for both future passes, as well as visibile passes. If you use this service, please show your appreciatin by making a donation to them if you can afford to do so. 
 
 It has been adapted to be usable out of the box if you use PlatformIO, with the only changes needed being for you to update the `include/secrets.h` with your WiFi credentials, and location information, and the define flags at the top of the main code if you need different settings, such as which pin the status LED is on, or the length of the neopixel string you are using.
 
