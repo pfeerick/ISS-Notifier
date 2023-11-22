@@ -411,9 +411,9 @@ bool getNextPass()
         return false;
       }
 
+      int passescount = doc["info"]["passescount"];
 
-      int i = 0;
-      do {
+      for (int i = 0; i < passescount; i++) {
         riseTime = doc["passes"][i]["startUTC"];
         // Serial.print("Start UTC: ");
         // Serial.println(riseTime);
@@ -423,8 +423,16 @@ bool getNextPass()
         flyoverDuration = doc["passes"][i]["duration"];
         // Serial.print("Duration: ");
         // Serial.println(flyoverDuration);
-        i++;
-      } while (riseTime < now());
+
+        if (riseTime > now()) break;
+      }
+
+      if (riseTime < now()) {
+        Serial.printf("getNextPass(): No future passes, %i passescount returned\n",passescount);
+        Serial.println("Response from server was");
+        Serial.println(payload);
+        return false;
+      }
 
       Serial.printf("Next pass at        : %02d:%02d:%02d %02d-%02d-%04d (UTC)\n",
                     hour(riseTime), minute(riseTime), second(riseTime), day(riseTime), month(riseTime), year(riseTime));
