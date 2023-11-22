@@ -413,6 +413,12 @@ bool getNextPass()
 
       int passescount = doc["info"]["passescount"];
 
+      if (passescount == 0) {
+        Serial.printf("getNextPass(): No visible passes, passescount==%i\n",
+                      passescount);
+        return false;
+      }
+
       for (int i = 0; i < passescount; i++) {
         riseTime = doc["passes"][i]["startUTC"];
         // Serial.print("Start UTC: ");
@@ -428,9 +434,8 @@ bool getNextPass()
       }
 
       if (riseTime < now()) {
-        Serial.printf("getNextPass(): No future passes, %i passescount returned\n",passescount);
-        Serial.println("Response from server was");
-        Serial.println(payload);
+        Serial.printf("getNextPass(): No future passes, passescount==%i\n",
+                      passescount);
         return false;
       }
 
