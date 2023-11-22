@@ -18,6 +18,10 @@
 
 #define OTA_HOSTNAME "ISS-Notifier"
 
+#define RETRY_DELAY 60      // time between retries
+#define RETRY_LIMIT 5       // number of retries before cooldown
+#define RETRY_COOLDOWN 3600 // cooldown before next set of retries
+
 #include <Arduino.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h> // ESP8266 WiFi support
@@ -45,11 +49,14 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #endif
 
-long riseTime = 0;                 // Time the ISS will rise for current position
-long flyoverDuration = 0;          // Duration of ISS pass for current position
-long timeUntilFlyover = 0;         // How long it will be until the next flyover
-long timeUntilFlyoverComplete = 0; // How long it will be until the current flyover is complete
-int heartbeatCounter = 0;          // Interval counter for periodic heartbeat flash
+long riseTime = 0;                    // Time the ISS will rise for current position
+long flyoverDuration = 0;             // Duration of ISS pass for current position
+long timeUntilFlyover = 0;            // How long it will be until the next flyover
+long timeUntilFlyoverComplete = 0;    // How long it will be until the current flyover is complete
+long timeUntilNextRetry = 0;          // How long before next retry
+long retries = 0;                     // Counter of how many retries attempted
+int heartbeatCounter = 0;             // Interval counter for periodic heartbeat flash
+int daysAheadToLookup = daysToLookup; // Number of days in the future to look (incremented on retry)
 
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
@@ -63,6 +70,7 @@ enum machineStates
   START,
   GET_TIME,
   GET_NEXT_PASS,
+  GET_NEXT_PASS_RETRY,
   WAIT_FOR_PASS,
   PASS_START,
   PASSING,
@@ -78,8 +86,8 @@ Ticker ticker;
 #define DRD_ADDRESS 0x00 // address to the block in the RTC user memory
 DoubleResetDetect drd(DRD_TIMEOUT, DRD_ADDRESS);
 
-void success();
-void fail();
+void success(int pauseTime = 500);
+void fail(int pauseTime = 500);
 bool getNextPass();
 void wifiSetup();
 void configModeCallback(WiFiManager *myWiFiManager);
@@ -216,7 +224,8 @@ void loop()
     if (!getNextPass())
     {
       fail();
-      delay(1000);
+      timeUntilNextRetry = now() + RETRY_DELAY;
+      currentState = GET_NEXT_PASS_RETRY;
     }
     else
     {
@@ -241,6 +250,27 @@ void loop()
 
       timeUntilFlyoverComplete = flyoverDuration;
       currentState = WAIT_FOR_PASS;
+    }
+    break;
+  }
+  case GET_NEXT_PASS_RETRY:
+  {
+    // if more than 5 retries, wait for an hour before next cycle
+    if (retries > RETRY_LIMIT) {
+      timeUntilNextRetry = now() + RETRY_COOLDOWN;
+      retries = 0;
+    }
+
+    if ((now() - timeUntilNextRetry) < 0) {
+      delay(2250);
+      fail(500);
+      delay(2250);
+    } else {
+      retries++;
+      if (daysAheadToLookup <= 5) {
+        daysAheadToLookup++;
+      }
+      currentState = GET_NEXT_PASS;
     }
     break;
   }
@@ -347,23 +377,23 @@ void loop()
   }
 }
 
-void success()
+void success(int pauseTime)
 {
   pixels.fill(pixels.Color(0, 255, 0));
   pixels.show();
 
-  delay(500);
+  delay(pauseTime);
 
   pixels.clear();
   pixels.show();
 }
 
-void fail()
+void fail(int pauseTime)
 {
   pixels.fill(pixels.Color(255, 0, 0));
   pixels.show();
 
-  delay(500);
+  delay(pauseTime);
 
   pixels.clear();
   pixels.show();
@@ -381,7 +411,7 @@ bool getNextPass()
   request += String(latitude) + "/";
   request += String(longitude) + "/";
   request += String(altitude) + "/";
-  request += String(daysToLookup) + "/";
+  request += String(daysAheadToLookup) + "/";
   request += String(minVisibility) + "/";
   request += "&apiKey=" + String(apiKey);
 
